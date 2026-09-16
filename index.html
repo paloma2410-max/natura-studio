@@ -411,7 +411,12 @@
               <i class="fa-solid fa-camera"></i> Enviar Foto
               <input id="pf_photoUpload" type="file" accept="image/*" class="hidden" />
             </label>
-            <input id="pf_imgBg" type="text" placeholder="Classe de fundo (ex: bg-slate-900)" class="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5" />
+            <input id="pf_imgBg" type="hidden" />
+            <div>
+              <label class="text-[11px] font-semibold text-slate-500">Fundo do card</label>
+              <div id="pf_imgBgSwatches" class="flex flex-wrap gap-1.5 mt-1"></div>
+              <p class="text-[10px] text-slate-400 mt-1">Fotos com fundo branco combinam melhor com um fundo neutro (branco/cinza).</p>
+            </div>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2 mt-3">
@@ -581,6 +586,18 @@ function guessCategory(text) {
 
 const BG_PALETTE = ['bg-red-900', 'bg-rose-800', 'bg-emerald-800', 'bg-sky-800', 'bg-cyan-900', 'bg-slate-900', 'bg-amber-800', 'bg-purple-900', 'bg-indigo-900', 'bg-teal-800'];
 function randomBg() { return BG_PALETTE[Math.floor(Math.random() * BG_PALETTE.length)]; }
+// Fundo neutro usado quando o card tem uma foto real: a maioria das fotos de produto
+// vem com fundo de estúdio branco/claro, então um fundo neutro evita o efeito de
+// "tarja" colorida nas bordas quando a foto não preenche 100% do quadro (fit "contain"
+// ou fotos com proporção diferente do card).
+const BG_NEUTRAL = 'bg-white';
+// Paleta completa oferecida no seletor visual do modal: neutros primeiro (recomendados
+// para fotos reais) seguidos das cores vivas (boas para cards só com emoji).
+const BG_SWATCHES = [
+  { cls: 'bg-white', title: 'Branco — combina com fotos de fundo branco' },
+  { cls: 'bg-slate-100', title: 'Cinza claro — combina com fotos de fundo claro' },
+  ...BG_PALETTE.map(cls => ({ cls, title: cls.replace('bg-', '').replace('-', ' ') }))
+];
 
 // ---------- Catálogo Natura (Consultar Produtos) ----------
 // Amostra real coletada em natura.com.br (nome, código, preço, imagem e link
@@ -691,7 +708,7 @@ let state = {
     { id: 6, code: '61123', category: 'Maquiagem', title: 'Máscara de Cílios Una Volume', subtitle: 'Preto Intenso', desc: 'Volume extremo em uma única aplicação.', priceOriginal: 44.90, priceDiscount: 32.90, imgUrl: null, imgFit: 'cover', imgPos: 'center', imgZoom: 100, imgBg: 'bg-slate-900', imgEmoji: '👁️', whatsappText: null },
     { id: 7, code: '43987', category: 'Cuidados', title: 'Sabonete Líquido Tododia Amêndoas', subtitle: '250ml', desc: 'Limpeza suave com toque hidratante para todo dia.', priceOriginal: 19.90, priceDiscount: 14.90, imgUrl: null, imgFit: 'cover', imgPos: 'center', imgZoom: 100, imgBg: 'bg-amber-800', imgEmoji: '🧼', whatsappText: null },
     { id: 8, code: '78654', category: 'Perfumaria', title: 'Perfume Essencial Elixir', subtitle: '100ml', desc: 'Fragrância marcante, sofisticada e envolvente.', priceOriginal: 189.90, priceDiscount: 149.90, imgUrl: null, imgFit: 'cover', imgPos: 'center', imgZoom: 100, imgBg: 'bg-purple-900', imgEmoji: '✨', whatsappText: null },
-    { id: 9, code: '32190', category: 'Perfumaria', title: 'Body Splash Tododia', subtitle: 'Framboesa e Baunilha Dourada • 200ml', desc: 'Alegria e vivacidade em spray, com notas adocicadas que hidratam e perfumam a pele.', priceOriginal: 64.90, priceDiscount: 49.90, imgUrl: IMG_BODYSPLASH_TODODIA, imgFit: 'cover', imgPos: 'top', imgZoom: 100, imgBg: 'bg-rose-900', imgEmoji: '🍓', whatsappText: null }
+    { id: 9, code: '32190', category: 'Perfumaria', title: 'Body Splash Tododia', subtitle: 'Framboesa e Baunilha Dourada • 200ml', desc: 'Alegria e vivacidade em spray, com notas adocicadas que hidratam e perfumam a pele.', priceOriginal: 64.90, priceDiscount: 49.90, imgUrl: IMG_BODYSPLASH_TODODIA, imgFit: 'cover', imgPos: 'top', imgZoom: 100, imgBg: 'bg-white', imgEmoji: '🍓', whatsappText: null }
   ]
 };
 
@@ -1124,12 +1141,13 @@ function openProductModal(product) {
   document.getElementById('pf_priceDiscount').value = product ? product.priceDiscount : '';
   document.getElementById('pf_imgFit').value = product ? product.imgFit : state.globalImgFit;
   document.getElementById('pf_imgPos').value = product ? product.imgPos : state.globalImgPos;
-  document.getElementById('pf_imgBg').value = product ? product.imgBg : randomBg();
+  document.getElementById('pf_imgBg').value = product ? product.imgBg : (product && product.imgUrl ? BG_NEUTRAL : randomBg());
   const zoomVal = product ? (product.imgZoom || 100) : state.globalImgZoom;
   document.getElementById('pf_imgZoom').value = zoomVal;
   document.getElementById('pf_zoomLabel').textContent = `${zoomVal}%`;
   document.getElementById('pf_whatsappText').value = product ? (product.whatsappText || defaultCaption(product)) : '';
 
+  renderBgSwatches();
   updateDiscountPreview();
   updatePhotoPreview(product ? product.imgEmoji : '📦');
 
@@ -1144,6 +1162,16 @@ function closeProductModal() {
   modal.classList.remove('flex');
   editingProductId = null;
   modalPhotoDataUrl = null;
+}
+
+function renderBgSwatches() {
+  const wrap = document.getElementById('pf_imgBgSwatches');
+  if (!wrap) return;
+  const current = document.getElementById('pf_imgBg').value;
+  wrap.innerHTML = BG_SWATCHES.map(s => `
+    <button type="button" data-bg="${s.cls}" title="${s.title}"
+      class="w-6 h-6 rounded-full ${s.cls} border-2 ${current === s.cls ? 'border-natura-darkOrange scale-110' : 'border-white'} shadow ring-1 ring-slate-200 transition"></button>
+  `).join('');
 }
 
 function updatePhotoPreview(emojiFallback) {
@@ -1898,7 +1926,9 @@ function addProductFromCatalog(item) {
     imgFit: state.globalImgFit,
     imgPos: state.globalImgPos,
     imgZoom: state.globalImgZoom,
-    imgBg: randomBg(),
+    // Vem sempre com foto real do catálogo Natura (fundo de estúdio branco) —
+    // fundo neutro evita a "tarja" colorida nas laterais/topo da foto.
+    imgBg: item.img ? BG_NEUTRAL : randomBg(),
     imgEmoji: categoryEmoji(item.category),
     whatsappText: null
   };
@@ -2427,13 +2457,31 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePhotoPreview();
   });
 
+  // Modal produto: seletor visual de fundo do card
+  document.getElementById('pf_imgBgSwatches').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-bg]');
+    if (!btn) return;
+    document.getElementById('pf_imgBg').value = btn.dataset.bg;
+    renderBgSwatches();
+    updatePhotoPreview();
+  });
+
   // Modal produto: upload de foto
   document.getElementById('pf_photoUpload').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const hadPhotoBefore = !!modalPhotoDataUrl;
     const reader = new FileReader();
     reader.onload = (ev) => {
       modalPhotoDataUrl = ev.target.result;
+      // Se o card ainda não tinha foto (era só emoji com fundo colorido), muda o
+      // fundo para neutro automaticamente — fotos de produto costumam ter fundo
+      // branco, então isso evita a tarja colorida nas bordas. O consultor pode
+      // trocar a cor depois no seletor de fundo se preferir.
+      if (!hadPhotoBefore) {
+        document.getElementById('pf_imgBg').value = BG_NEUTRAL;
+        renderBgSwatches();
+      }
       updatePhotoPreview();
     };
     reader.readAsDataURL(file);
